@@ -25,6 +25,7 @@ class BridgeService : Service() {
         fun stop(context: Context) = context.stopService(Intent(context, BridgeService::class.java))
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var pollJob: Job? = null
     override fun onCreate() {
         super.onCreate()
         if (Build.VERSION.SDK_INT >= 26) getSystemService(NotificationManager::class.java)
@@ -36,7 +37,7 @@ class BridgeService : Service() {
         startForeground(62110, NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("ADB Helper 云端桥接运行中").setContentText("复用当前 ADB 会话")
             .setContentIntent(pi).setOngoing(true).build())
-        if (scope.coroutineContext[Job]?.children?.any() != true) scope.launch { loop() }
+        if (pollJob?.isActive != true) pollJob = scope.launch { loop() }
         return START_STICKY
     }
     private suspend fun loop() {
