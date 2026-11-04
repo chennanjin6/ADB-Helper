@@ -39,6 +39,12 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
         
+        <service
+            android:name=".bridge.BridgeService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
