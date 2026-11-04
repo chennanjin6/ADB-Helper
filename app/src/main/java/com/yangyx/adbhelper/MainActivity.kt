@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Phonelink
@@ -57,6 +59,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -81,12 +85,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.app.Activity
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.runtime.DisposableEffect
 import com.yangyx.adbhelper.scrcpy.ScreenState
 import com.yangyx.adbhelper.scrcpy.ScrcpyView
+import com.yangyx.adbhelper.bridge.BridgePrefs
+import com.yangyx.adbhelper.bridge.BridgeService
 import com.yangyx.adbhelper.ui.AdbViewModel
 import com.yangyx.adbhelper.ui.ConnectionState
 import com.yangyx.adbhelper.ui.screens.AppAndProcessScreen
@@ -141,6 +148,8 @@ class MainActivity : ComponentActivity() {
                 val liquidGlassConfig by viewModel.liquidGlassConfig.collectAsState()
                 var showBottomBarSettingsSheet by remember { mutableStateOf(false) }
                 var showWidgetPinningDialog by remember { mutableStateOf(false) }
+                var showBridgeDialog by remember { mutableStateOf(false) }
+                var bridgeToken by remember { mutableStateOf("") }
 
                 var selectedNavIndex by remember { mutableIntStateOf(0) }
 
@@ -270,6 +279,9 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
                                     }
+                                    IconButton(onClick = { bridgeToken = ""; showBridgeDialog = true }) {
+                                        Icon(Icons.Default.Cloud, contentDescription = "Cloudflare ADB 云桥", tint = MaterialTheme.colorScheme.primary)
+                                    }
                                     IconButton(onClick = { showBottomBarSettingsSheet = true }) {
                                         Icon(
                                             imageVector = Icons.Default.AutoAwesome,
@@ -398,6 +410,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     actions = {
+                                    IconButton(onClick = { bridgeToken = ""; showBridgeDialog = true }) {
+                                        Icon(Icons.Default.Cloud, contentDescription = "Cloudflare ADB 云桥", tint = MaterialTheme.colorScheme.primary)
+                                    }
                                         IconButton(onClick = { showBottomBarSettingsSheet = true }) {
                                             Icon(
                                                 imageVector = Icons.Default.AutoAwesome,
@@ -613,6 +628,38 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
+
+                if (showBridgeDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showBridgeDialog = false },
+                        title = { Text("Cloudflare ADB 云桥") },
+                        text = {
+                            Column {
+                                Text("填入 Cloudflare Worker 的 BRIDGE_TOKEN。只需配置一次，凭证会使用 Android Keystore 加密保存在本机。")
+                                OutlinedTextField(value = bridgeToken, onValueChange = { bridgeToken = it }, label = { Text("BRIDGE_TOKEN") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                                Text("Worker：huawei-adb-bridge.chennanjin6.workers.dev")
+                            }
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                try {
+                                    if (bridgeToken.isNotBlank()) BridgePrefs.saveToken(context, bridgeToken)
+                                    if (BridgePrefs.getToken(context).isNullOrBlank()) throw IllegalStateException("请先填写 BRIDGE_TOKEN")
+                                    BridgeService.start(context)
+                                    bridgeToken = ""
+                                    showBridgeDialog = false
+                                    Toast.makeText(context, "云桥已启动；请保持 ADB Helper 的电视连接", Toast.LENGTH_LONG).show()
+                                } catch (e: Exception) { Toast.makeText(context, e.message ?: "启动失败", Toast.LENGTH_LONG).show() }
+                            }) { Text("保存并启动") }
+                        },
+                        dismissButton = {
+                            Row {
+                                TextButton(onClick = { BridgeService.stop(context); showBridgeDialog = false; Toast.makeText(context, "已停止云桥", Toast.LENGTH_SHORT).show() }) { Text("停止云桥") }
+                                TextButton(onClick = { showBridgeDialog = false }) { Text("关闭") }
+                            }
+                        }
+                    )
                 }
 
                 if (showBottomBarSettingsSheet) {
