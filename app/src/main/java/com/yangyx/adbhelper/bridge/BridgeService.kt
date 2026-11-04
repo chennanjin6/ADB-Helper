@@ -41,7 +41,7 @@ class BridgeService : Service() {
         return START_STICKY
     }
     private suspend fun loop() {
-        while (isActive) {
+        while (scope.isActive) {
             try {
                 val token = BridgePrefs.getToken(this)
                 val conn = WidgetStateHolder.activeConnection ?: AdbViewModel.currentInstance?.activeConnection
